@@ -1,0 +1,17 @@
+[package]
+name = "island_generator"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+allegro="0.0.42"
+allegro_font="0.0.42"
+allegro-sys="0.0.42"
+allegro_primitives="0.0.42"
+allegro_image="0.0.42"
+egui="0.16.1"
+epi="0.16.0"
+rand="0.8.5"
+num="0.4.0"
