@@ -27,7 +27,7 @@ impl Island {
         let die = rand::distributions::Uniform::new(MIN_RANDMAP_EXP, MAX_RANDMAP_EXP);
         let exp = die.sample(&mut rng) as u32;
         let randmap_size = (u32::pow(2, exp) + 3) as usize;
-        println!("Randmap size {}", randmap_size);
+        log::trace!("Randmap size {}", randmap_size);
         let mut randmap: Vec<Vec<f32>> = vec![vec![0.0; randmap_size]; randmap_size];
 
         // define area in which to apply diamond-square algorithm
@@ -83,7 +83,7 @@ impl Island {
             }
             tiles.push(new_col);
         }
-        println!("Island created");
+        log::info!("Island created");
         Some(Island {
             clipping_rect,
             tiles,

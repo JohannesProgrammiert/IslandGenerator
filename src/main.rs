@@ -5,8 +5,16 @@ mod user_cmds;
 mod world;
 use std::sync::Arc;
 use std::sync::Mutex;
+use serde_yaml;
+use log::info;
 
+fn configure_logging() {
+    let config_str = include_str!("logging.yaml");
+    let config = serde_yaml::from_str(config_str).unwrap();
+    log4rs::init_raw_config(config).unwrap();
+}
 fn main() -> Result<(), String> {
+    configure_logging();
     let world = Arc::new(Mutex::new(world::World::new(
         glob::types::WorldCoordinate::new(0.0, 0.0),
     )));
@@ -31,6 +39,6 @@ fn main() -> Result<(), String> {
             break;
         }
     }
-    println!("Quit");
+    info!("Quit");
     Ok(())
 }

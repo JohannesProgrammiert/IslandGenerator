@@ -29,7 +29,7 @@ impl MapRenderer {
         )
             .expect("Cannot create map texture");
         allegro_core.set_target_bitmap(Some(&map));
-        println!("Number of islands {}", world.islands.len());
+        log::debug!("Number of islands {}", world.islands.len());
         for x in 0..world.clipping_rect.width() as usize {
             for y in 0..world.clipping_rect.height() as usize {
                 allegro_core.put_pixel(x as i32, y as i32, allegro::Color::from_rgba(255, 255, 255, 255));
