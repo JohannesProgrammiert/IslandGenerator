@@ -5,20 +5,22 @@ pub enum KeyState {
     Pressed,
     Released,
 }
-pub struct UserFeedback {
+pub struct RendererFeedback {
     pub mouse: MouseState,
     pub exit: bool,
     pub key_states: [KeyState; NUM_KEYS],
     pub loaded_world_area: types::WorldRect,
+    pub update_necessary: bool,
 }
 
-impl UserFeedback {
+impl RendererFeedback {
     pub fn new() -> Self {
-        UserFeedback {
+        Self {
             mouse: MouseState::new(),
             exit: false,
             key_states: [KeyState::Released; NUM_KEYS],
             loaded_world_area: types::WorldRect::default(),
+            update_necessary: false,
         }
     }
 }

@@ -160,7 +160,7 @@ impl<T> Coordinate<T> for Coord<T>
     }
 }
 
-#[derive(Copy, Clone, PartialEq, Debug)]
+#[derive(Copy, Clone, PartialEq, Debug, Default)]
 pub struct WorldCoordinate {
     x: f32,
     y: f32,
