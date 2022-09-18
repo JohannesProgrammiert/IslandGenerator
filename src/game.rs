@@ -5,20 +5,17 @@ use allegro::KeyCode;
 use std::sync::Arc;
 use std::sync::Mutex;
 pub struct Game {
-    world: Arc<Mutex<World>>,
     user: Arc<Mutex<UserFeedback>>,
 }
 
 impl Game {
-    pub fn new(world: Arc<Mutex<World>>, user_feedback: Arc<Mutex<UserFeedback>>) -> Self {
+    pub fn new(user_feedback: Arc<Mutex<UserFeedback>>) -> Self {
         Game {
-            world,
             user: user_feedback,
         }
     }
-    pub fn update(&self) {
+    pub fn update(&self, world: &mut World) {
         let user = self.user.lock().unwrap();
-        let mut world = self.world.lock().unwrap();
         // determine chunks that lie inside the rendered world area
         let start_chunk = Coord::new(
             f32::floor(user.loaded_world_area.upper_left().x() / crate::world::CHUNK_SIZE) as isize,

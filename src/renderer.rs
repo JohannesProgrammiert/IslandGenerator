@@ -17,7 +17,6 @@ pub struct Renderer {
     settings: Settings,
     engine: Engine,
     egui_engine: egui_allegro_backend::Backend,
-    world: Arc<Mutex<World>>,
     user: Arc<Mutex<UserFeedback>>,
     mouse: ScreenCoordinate,
     apparent_tile_size: ScreenCoordinate,
@@ -32,7 +31,6 @@ pub struct Renderer {
 impl Renderer {
     pub fn new(
         init_settings: Settings,
-        world: Arc<Mutex<World>>,
         user: Arc<Mutex<UserFeedback>>,
     ) -> Result<Self, String> {
         let engine = Engine::new(init_settings.fps, init_settings.screen_size)?;
@@ -61,7 +59,6 @@ impl Renderer {
             settings: init_settings,
             engine,
             egui_engine,
-            world,
             user,
             mouse: ScreenCoordinate::new(0.0, 0.0),
             apparent_tile_size: glob::TILE_SIZE * init_settings.scale,
@@ -80,10 +77,8 @@ impl Renderer {
     const MOUSE_SCALE_FACTOR: f32 = 0.2;
     const MAX_SCALE: f32 = 7.0;
     const MIN_SCALE: f32 = 0.2;
-    pub fn next_frame(&mut self) -> bool {
+    pub fn next_frame(&mut self, world: &World) -> bool {
         //-- trick borrow checker to use shared memory and lock only once per call
-        let world = self.world.clone();
-        let mut world = world.lock().unwrap();
         let user = self.user.clone();
         let mut user = user.lock().unwrap();
         //--------------------------------------------------------------------------
@@ -159,10 +154,7 @@ impl Renderer {
             }
         }
         if redraw {
-            if world.map_needs_update {
-                self.map_renderer.update(&world, &*self.engine.core, &*self.engine.display);
-                world.map_needs_update = false;
-            }
+            self.map_renderer.update(&world, &*self.engine.core, &*self.engine.display);
             let mouse_in_world = WorldCoordinate::from_screen(
                 self.mouse,
                 self.screen_on_world.upper_left(),

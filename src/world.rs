@@ -22,7 +22,6 @@ pub struct World {
     pub chunks: std::collections::HashMap<Coord<isize>, Chunk>,
     /* Screen center world position */
     pub screen_pos: WorldCoordinate,
-    pub map_needs_update: bool,
 }
 impl World {
     pub fn new(init_pos: WorldCoordinate) -> Self {
@@ -31,7 +30,6 @@ impl World {
             clipping_rect: WorldRect::default(),
             chunks: std::collections::HashMap::new(),
             screen_pos: init_pos, // show on first tile
-            map_needs_update: true,
         }
     }
     pub fn gen_chunk(&mut self, ind: Coord<isize>) {
@@ -156,7 +154,6 @@ impl World {
         }
         self.clipping_rect = WorldRect::new(min_pos, max_pos);
         log::debug!("New world clipping rect: {:?}", self.clipping_rect);
-        self.map_needs_update = true;
     }
 }
 
