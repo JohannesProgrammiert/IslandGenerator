@@ -15,7 +15,7 @@ pub struct GuiInfo {
     pub show_map: bool,
 }
 
-pub fn draw_gui(ctx: &egui::CtxRef, args: &mut GuiInfo) {
+pub fn draw_gui(ctx: &egui::Context, args: &mut GuiInfo) {
     egui::SidePanel::right("Game")
         .min_width(args.min_side_panel_width)
         .show(&ctx, |ui| {

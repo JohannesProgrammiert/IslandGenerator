@@ -38,7 +38,13 @@ impl Renderer {
                 y: init_settings.screen_size.y(),
             },
         };
+        let egui_ctx = egui::Context::default();
+        let mut style = (*egui_ctx.style()).clone();
+        style.visuals.dark_mode = true;
+        style.visuals.window_shadow.extrusion = 0.0;
+        egui_ctx.set_style(style);
         let egui_engine = egui_allegro_backend::Backend::new(
+            egui_ctx,
             egui_screen_size,
             engine.core.clone(),
             engine.display.clone(),
