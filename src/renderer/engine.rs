@@ -1,6 +1,6 @@
+//! Allegro game engine initialization
 use crate::glob::*;
 use std::rc::Rc;
-// use std::ops::Drop;
 
 const PATH_NAMES: [&str; TextureType::NumBitmaps as usize] = [
     "textures/terrain/focused_red.png",
@@ -44,26 +44,54 @@ pub struct Engine {
     timer: allegro::Timer,
 }
 
+use thiserror::Error;
+
+#[derive(Error, Debug)]
+pub enum EngineError {
+    #[error("Failed to create allegro core: {0}")]
+    Core(String),
+    #[error("Failed to create allegro event queue")]
+    EventQueue,
+    #[error("Failed to create allegro display")]
+    Display,
+    #[error("Failed to create allegro primitives addon: {0}")]
+    PrimitivesAddon(String),
+    #[error("Failed to create allegro image addon: {0}")]
+    ImageAddon(String),
+    #[error("Failed to create allegro font addon: {0}")]
+    FontAddon(String),
+    #[error("Failed to load allegro bitmap: {0}")]
+    LoadBitmap(String),
+    #[error("Failed to create allegro font")]
+    LoadFonts,
+    #[error("Failed to create allegro timer")]
+    Timer,
+    #[error("Failed install keyboard")]
+    Keyboard,
+    #[error("Failed install mouse")]
+    Mouse,
+}
+
 impl Engine {
-    pub fn new(fps: f32, screen_size: types::ScreenCoordinate) -> Result<Self, String> {
+    pub fn new(fps: f32, screen_size: types::ScreenCoordinate) -> Result<Self, EngineError> {
         let core: allegro::Core;
         match allegro::Core::init() {
             Ok(c) => core = c,
-            Err(e) => return Err(e),
+            Err(e) => return Err(EngineError::Core(e)),
         }
         let core = Rc::new(core);
 
         let event_queue: allegro::EventQueue;
         match allegro::EventQueue::new(&core) {
             Ok(ev) => event_queue = ev,
-            Err(_) => return Err("Cannot create event queue".to_string()),
+            Err(_) => return Err(EngineError::EventQueue),
         }
 
         core.set_new_display_flags(allegro::display::RESIZABLE);
         let display: allegro::Display;
         match allegro::Display::new(&core, screen_size.x as i32, screen_size.y as i32) {
             Ok(d) => display = d,
-            Err(_) => return Err("Cannot create display".to_string()),
+            Err(_) => return Err(EngineError::Display),
         }
         display.set_window_title("Game");
         let display = Rc::new(display);
@@ -71,7 +99,7 @@ impl Engine {
         let primitives_addon: allegro_primitives::PrimitivesAddon;
         match allegro_primitives::PrimitivesAddon::init(&core) {
             Ok(p) => primitives_addon = p,
-            Err(e) => return Err(e),
+            Err(e) => return Err(EngineError::PrimitivesAddon(e)),
         }
         let primitives_addon = Rc::new(primitives_addon);
 
@@ -79,13 +107,13 @@ impl Engine {
         let image_addon: allegro_image::ImageAddon;
         match allegro_image::ImageAddon::init(&core) {
             Ok(i) => image_addon = i,
-            Err(e) => return Err(e),
+            Err(e) => return Err(EngineError::ImageAddon(e)),
         }
 
         let font_addon: allegro_font::FontAddon;
         match allegro_font::FontAddon::init(&core) {
             Ok(f) => font_addon = f,
-            Err(e) => return Err(e),
+            Err(e) => return Err(EngineError::FontAddon(e)),
         }
 
         // load bitmaps TODO
@@ -93,27 +121,31 @@ impl Engine {
         for i in 0..PATH_NAMES.len() {
             match allegro::Bitmap::load(&core, PATH_NAMES[i]) {
                 Ok(b) => bitmaps.push(b),
-                Err(_) => return Err(format!("Failed to load bitmap {}", PATH_NAMES[i])),
+                Err(_) => return Err(
+                    EngineError::LoadBitmap(
+                        format!("Failed to load bitmap {}", PATH_NAMES[i])
+                    )
+                ),
             }
         }
 
         let font: allegro_font::Font;
         match allegro_font::Font::new_builtin(&font_addon) {
             Ok(f) => font = f,
-            Err(_) => return Err("Failed to create font".to_string()),
+            Err(_) => return Err(EngineError::LoadFonts),
         }
 
         let timer: allegro::Timer;
         match allegro::Timer::new(&core, 1.0 / fps as f64) {
             Ok(t) => timer = t,
-            Err(_) => return Err("Failed to create timer".to_string()),
+            Err(_) => return Err(EngineError::Timer),
         }
 
         if let Err(_) = allegro::core::Core::install_keyboard(&core) {
-            return Err("Failed to install keyboard".to_string());
+            return Err(EngineError::Keyboard);
         }
         if let Err(_) = allegro::core::Core::install_mouse(&core) {
-            return Err("Failed to install mouse".to_string());
+            return Err(EngineError::Mouse);
         }
         
         event_queue.register_event_source(timer.get_event_source());

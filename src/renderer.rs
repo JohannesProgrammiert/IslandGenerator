@@ -24,12 +24,21 @@ pub struct Renderer {
     last_draw: std::time::Instant,
     map_renderer: MapRenderer,
 }
-
+use thiserror::Error;
+#[derive(Error, Debug)]
+pub enum RendererError {
+    #[error("Failed to initialize allegro engine: {0}")]
+    Engine(engine::EngineError)
+}
 impl Renderer {
     pub fn new(
         init_settings: Settings,
-    ) -> Result<Self, String> {
-        let engine = Engine::new(init_settings.fps, init_settings.screen_size)?;
+    ) -> Result<Self, RendererError> {
+        let engine: Engine;
+        match Engine::new(init_settings.fps, init_settings.screen_size) {
+            Ok(e) => engine = e,
+            Err(e) => return Err(RendererError::Engine(e))
+        }
         engine.start_timer();
         let egui_screen_size = egui::Rect {
             min: egui::Pos2 { x: 0.0, y: 0.0 },
@@ -210,7 +219,7 @@ impl Renderer {
         let w2s = gen_w2s_matrix(self.settings.scale, world.screen_pos);
         for island in &world.islands {
             if !island.clipping_rect.intersects(&self.rendered_world_area) {
-                log::trace!("Island {:?} does not intersect rendered area {:?}", island, self.rendered_world_area);
+                log::trace!("Island rect {:?} does not intersect rendered area {:?}", island.clipping_rect, self.rendered_world_area);
                 continue;
             }
             for x in 0..island.tiles.len() {
