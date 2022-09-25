@@ -1,8 +1,8 @@
 use crate::glob::*;
-#[derive(Clone, Copy, PartialEq)]
+#[derive(Clone, Copy, PartialEq, Eq)]
 #[allow(unused)]
 pub enum Direction {
-    NoDirection,
+    None,
     North,
     South,
     West,

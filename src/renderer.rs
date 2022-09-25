@@ -33,15 +33,15 @@ pub enum RendererError {
     #[error("Failed to initialize allegro engine: {0}")]
     Engine(engine::EngineError)
 }
+
 impl Renderer {
     pub fn new(
         init_settings: Settings,
     ) -> Result<Self, RendererError> {
-        let engine: Engine;
-        match Engine::new(init_settings.fps, init_settings.screen_size) {
-            Ok(e) => engine = e,
+        let engine = match Engine::new(init_settings.fps, init_settings.screen_size) {
+            Ok(e) => e,
             Err(e) => return Err(RendererError::Engine(e))
-        }
+        };
         engine.start_timer();
         let egui_screen_size = egui::Rect {
             min: egui::Pos2 { x: 0.0, y: 0.0 },
@@ -161,13 +161,13 @@ impl Renderer {
             }
         }
         if redraw {
-            self.map_renderer.update(&world, &*self.engine.core, &*self.engine.display);
+            self.map_renderer.update(world, &*self.engine.core, &*self.engine.display);
             let s2w = gen_s2w_matrix(self.settings.scale, world.screen_pos);
             let mouse_in_world = s2w.transform_point(self.mouse);
             self.mouse_state.pos_diff = self.mouse_state.pos - mouse_in_world;
             self.mouse_state.pos = mouse_in_world;
 
-            self.draw(&world);
+            self.draw(world);
             let points = vec![
                 WorldCoordinate::new(
                     self.screen_on_world.min_x(),
@@ -184,7 +184,7 @@ impl Renderer {
         ret.key_states = self.key_states;
         ret.mouse = self.mouse_state;
         ret.update_necessary = redraw;
-        return ret;
+        ret
     }
 
     fn apply_settings(&mut self, screen_pos: WorldCoordinate) {
@@ -247,13 +247,12 @@ impl Renderer {
                     {
                         continue;
                     }
-                    let bitmap: engine::TextureType;
-                    if tile.height <= 0.0 {
-                        continue;
+                    let bitmap = if tile.height <= 0.0 {
+                        continue
                     }
                     else {
-                        bitmap = engine::TextureType::Tile;
-                    }
+                        engine::TextureType::Tile
+                    };
                     self.engine.core.draw_tinted_scaled_rotated_bitmap_region(
                         &self.engine.bitmaps[bitmap as usize],
                         // texture start
@@ -303,6 +302,6 @@ impl Renderer {
                 }
             }
         }
-        return drawn_cells;
+        drawn_cells
     }
 }

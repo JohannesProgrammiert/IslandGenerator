@@ -1,5 +1,5 @@
 use crate::glob::types::*;
-#[derive(PartialEq)]
+#[derive(PartialEq, Eq)]
 pub enum SidePanelTab {
     Main,
     Settings,
@@ -18,7 +18,7 @@ pub struct GuiInfo {
 pub fn draw_gui(ctx: &egui::Context, args: &mut GuiInfo) {
     egui::SidePanel::right("Game")
         .min_width(args.min_side_panel_width)
-        .show(&ctx, |ui| {
+        .show(ctx, |ui| {
             ui.heading("Side Panel");
             ui.separator();
             ui.horizontal(|ui| {
@@ -55,7 +55,7 @@ pub fn draw_gui(ctx: &egui::Context, args: &mut GuiInfo) {
                 }
             }
         });
-    egui::TopBottomPanel::bottom("Toolbar").show(&ctx, |ui| {
+    egui::TopBottomPanel::bottom("Toolbar").show(ctx, |ui| {
         if ui.button("Map").clicked() {
             args.show_map = !args.show_map;
         }

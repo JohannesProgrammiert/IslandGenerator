@@ -67,10 +67,10 @@ impl Island {
         let smooth_heightmap = Island::gauss_smooth(heightmap);
 
         let cut_heightmap = Island::cut_map(smooth_heightmap);
-        if cut_heightmap.len() == 0 {
+        if cut_heightmap.is_empty() {
             return None;
         }
-        if cut_heightmap[0].len() == 0 {
+        if cut_heightmap[0].is_empty() {
             return None;
         }
         // calculate clipping rect

@@ -1,6 +1,6 @@
 use crate::glob::*;
 pub const NUM_KEYS: usize = 119;
-#[derive(Copy, Clone, PartialEq)]
+#[derive(Copy, Clone, PartialEq, Eq)]
 pub enum KeyState {
     Pressed,
     Released,

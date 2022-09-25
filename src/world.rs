@@ -26,17 +26,18 @@ pub struct World {
     /// Screen center world position
     pub screen_pos: WorldCoordinate,
 }
-impl World {
-    /// Create empty game world with initial screen position
-    pub fn new(screen_pos: WorldCoordinate) -> Self {
+
+impl Default for World {
+    fn default() -> Self {
         World {
             islands: Vec::new(),
             clipping_rect: WorldRect::default(),
             chunks: std::collections::HashMap::new(),
-            screen_pos, // show on first tile
+            screen_pos: WorldCoordinate::new(0.0, 0.0),
         }
     }
-
+}
+impl World {
     /// Generate a new chunk with index `ind`
     pub fn gen_chunk(&mut self, ind: ChunkIndex) {
         // generating this chunk may cause a snowball effect
@@ -49,7 +50,7 @@ impl World {
             if let Some(mut island) = Island::new(chunk_pos + WorldVector::new(CHUNK_SIZE, CHUNK_SIZE)/2.0) {
                 let mut fits = false;
                 let mut intersects_none = true;
-                for (index, _chunk) in &self.chunks {
+                for index in self.chunks.keys() {
                     let chunk = WorldRect::new(
                         WorldCoordinate::new(
                             index.x as f32 * CHUNK_SIZE,
@@ -69,7 +70,7 @@ impl World {
                             let offset = WorldCoordinate::new(x as f32, y as f32);
                             // shift clipping rect in any direction until it works
                             let mut intersects_none = true;
-                            for (index, _chunk) in &self.chunks {
+                            for index in self.chunks.keys() {
                                 let chunk = WorldRect::new(
                                     WorldCoordinate::new(
                                         index.x as f32 * CHUNK_SIZE,
@@ -105,12 +106,12 @@ impl World {
                         f32::floor(island.clipping_rect.max_y() / CHUNK_SIZE) as isize,
                     );
                     if chunk_min == chunk_max {
-                        if self.chunks.contains_key(&chunk_min) {
-                            log::debug!("Chunk {} {} Already exists", chunk_min.x, chunk_min.y);
+                        if let std::collections::hash_map::Entry::Vacant(e) = self.chunks.entry(chunk_min) {
+                            log::debug!("Register chunk at {}, {}", chunk_min.x, chunk_min.y);
+                            e.insert(Chunk::new());
                         }
                         else {
-                            log::debug!("Register chunk at {}, {}", chunk_min.x, chunk_min.y);
-                            self.chunks.insert(chunk_min, Chunk::new());
+                            log::debug!("Chunk {} {} Already exists", chunk_min.x, chunk_min.y);
                         }
                     }
                     else {
@@ -134,25 +135,25 @@ impl World {
                 }
             }
         }
-        if !self.chunks.contains_key(&ind) {
+        self.chunks.entry(ind).or_insert_with(|| {
             log::debug!("Register chunk at {}, {}", ind.x, ind.y);
-            self.chunks.insert(ind, Chunk::new());
-        }
+            Chunk::new()
+        });
 
         // re-generate clipping rect of world
         let mut min_pos = WorldCoordinate::new(f32::MAX, f32::MAX);
         let mut max_pos = WorldCoordinate::new(f32::MIN, f32::MIN);
-        for (index, _chunk) in &self.chunks {
+        for index in self.chunks.keys() {
             if index.x as f32 * CHUNK_SIZE < min_pos.x {
                 min_pos = WorldCoordinate::new(index.x as f32 * CHUNK_SIZE as f32, min_pos.y);
             }
-                                             if index.y as f32 * CHUNK_SIZE < min_pos.y {
-                                                 min_pos = WorldCoordinate::new(min_pos.x, index.y as f32 * CHUNK_SIZE);
-                                             }
-                                                                              if index.x as f32 * CHUNK_SIZE + CHUNK_SIZE > max_pos.x {
-                                                 max_pos = WorldCoordinate::new(index.x as f32 * CHUNK_SIZE + CHUNK_SIZE, max_pos.y);
-                                             }
-                                             if index.y as f32 * CHUNK_SIZE + CHUNK_SIZE > max_pos.y {
+            if index.y as f32 * CHUNK_SIZE < min_pos.y {
+                min_pos = WorldCoordinate::new(min_pos.x, index.y as f32 * CHUNK_SIZE);
+            }
+            if index.x as f32 * CHUNK_SIZE + CHUNK_SIZE > max_pos.x {
+                max_pos = WorldCoordinate::new(index.x as f32 * CHUNK_SIZE + CHUNK_SIZE, max_pos.y);
+            }
+            if index.y as f32 * CHUNK_SIZE + CHUNK_SIZE > max_pos.y {
                 max_pos = WorldCoordinate::new(max_pos.x, index.y as f32 * CHUNK_SIZE + CHUNK_SIZE);
             }
         }

@@ -23,7 +23,7 @@ impl MapRenderer {
         // create texture in RAM
         allegro_core.set_new_bitmap_flags(allegro::MEMORY_BITMAP);
         let map = allegro::Bitmap::new(
-            &*allegro_core,
+            allegro_core,
             world.clipping_rect.width() as i32,
             world.clipping_rect.height() as i32,
         )
@@ -35,7 +35,7 @@ impl MapRenderer {
                 allegro_core.put_pixel(x as i32, y as i32, allegro::Color::from_rgba(255, 255, 255, 255));
             }
         }
-        for (ind, _chunk) in &world.chunks {
+        for ind in world.chunks.keys() {
             for x in 0..CHUNK_SIZE as usize {
                 for y in 0..CHUNK_SIZE as usize {
                     let pos = WorldCoordinate::new(

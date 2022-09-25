@@ -42,13 +42,11 @@ impl Backend {
         allegro_display: Rc<allegro::display::Display>,
         allegro_primitives_addon: Rc<allegro_primitives::PrimitivesAddon>,
     ) -> Self {
-        let mut egui_input = egui::RawInput::default();
-        egui_input.screen_rect = Some(screen_size);
         Backend {
             egui_ctx,
             egui_textures: Vec::new(),
             egui_texture_sizes: Vec::new(),
-            egui_input,
+            egui_input: egui::RawInput { screen_rect: Some(screen_size), ..Default::default() },
             allegro_core,
             allegro_display,
             allegro_primitives_addon,
@@ -81,13 +79,12 @@ impl Backend {
                     x: *x as f32,
                     y: *y as f32,
                 };
-                let egui_button: egui::PointerButton;
-                match button {
-                    1 => egui_button = egui::PointerButton::Primary,
-                    3 => egui_button = egui::PointerButton::Middle,
-                    2 => egui_button = egui::PointerButton::Secondary,
+                let egui_button: egui::PointerButton = match button {
+                    1 => egui::PointerButton::Primary,
+                    3 => egui::PointerButton::Middle,
+                    2 => egui::PointerButton::Secondary,
                     _ => return,
-                }
+                };
                 self.egui_input.events.push(egui::Event::PointerButton {
                     pos,
                     button: egui_button,
@@ -106,13 +103,12 @@ impl Backend {
                     x: *x as f32,
                     y: *y as f32,
                 };
-                let egui_button: egui::PointerButton;
-                match button {
-                    1 => egui_button = egui::PointerButton::Primary,
-                    3 => egui_button = egui::PointerButton::Middle,
-                    2 => egui_button = egui::PointerButton::Secondary,
+                let egui_button: egui::PointerButton = match button {
+                    1 => egui::PointerButton::Primary,
+                    3 => egui::PointerButton::Middle,
+                    2 => egui::PointerButton::Secondary,
                     _ => return,
-                }
+                };
                 self.egui_input.events.push(egui::Event::PointerButton {
                     pos,
                     button: egui_button,
@@ -202,14 +198,14 @@ impl Backend {
                             u += 0.5;
                             v += 0.5;
                         }
-                        return allegro_primitives::Vertex {
+                        allegro_primitives::Vertex {
                             color,
                             u,
                             v,
                             x: vert.pos.x,
                             y: vert.pos.y,
                             z: 0.0,
-                        };
+                        }
                     })
                     .collect(),
             };
@@ -276,12 +272,11 @@ impl Backend {
                 log::warn!("Unsupported: ImageData of type 'Color'");
                 continue;
             }
-            if let Some(_) = image_delta.pos {
+            if image_delta.pos.is_some() {
                 log::warn!("Unsupported: partial texture update");
                 continue;
             }
-            let tex: allegro::Bitmap;
-            match allegro::Bitmap::new(
+            let tex = match allegro::Bitmap::new(
                 &self.allegro_core,
                 font_image.width() as i32,
                 font_image.height() as i32,
@@ -290,8 +285,9 @@ impl Backend {
                     log::error!("Cannot create allegro bitmap: allegro::Bitmap::new() failed");
                     continue;
                 }
-                Ok(t) => tex = t,
-            }
+                Ok(t) => t,
+            };
+
             let iter = font_image.srgba_pixels(Backend::GAMMA);
 
             let pixels: Vec<allegro::Color> = iter

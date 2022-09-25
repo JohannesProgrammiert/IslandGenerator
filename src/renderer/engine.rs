@@ -74,77 +74,70 @@ pub enum EngineError {
 
 impl Engine {
     pub fn new(fps: f32, screen_size: types::ScreenCoordinate) -> Result<Self, EngineError> {
-        let core: allegro::Core;
-        match allegro::Core::init() {
-            Ok(c) => core = c,
+        let core = match allegro::Core::init() {
+            Ok(c) => c,
             Err(e) => return Err(EngineError::Core(e)),
-        }
+        };
+        // wrap in reference counter
         let core = Rc::new(core);
 
-        let event_queue: allegro::EventQueue;
-        match allegro::EventQueue::new(&core) {
-            Ok(ev) => event_queue = ev,
+        let event_queue = match allegro::EventQueue::new(&core) {
+            Ok(ev) => ev,
             Err(_) => return Err(EngineError::EventQueue),
-        }
+        };
 
         core.set_new_display_flags(allegro::display::RESIZABLE);
-        let display: allegro::Display;
-        match allegro::Display::new(&core, screen_size.x as i32, screen_size.y as i32) {
-            Ok(d) => display = d,
+        let display = match allegro::Display::new(&core, screen_size.x as i32, screen_size.y as i32) {
+            Ok(d) => d,
             Err(_) => return Err(EngineError::Display),
-        }
+        };
         display.set_window_title("Game");
         let display = Rc::new(display);
 
-        let primitives_addon: allegro_primitives::PrimitivesAddon;
-        match allegro_primitives::PrimitivesAddon::init(&core) {
-            Ok(p) => primitives_addon = p,
+        let primitives_addon = match allegro_primitives::PrimitivesAddon::init(&core) {
+            Ok(p) => p,
             Err(e) => return Err(EngineError::PrimitivesAddon(e)),
-        }
+        };
         let primitives_addon = Rc::new(primitives_addon);
 
         event_queue.register_event_source(display.get_event_source());
-        let image_addon: allegro_image::ImageAddon;
-        match allegro_image::ImageAddon::init(&core) {
-            Ok(i) => image_addon = i,
+        let image_addon = match allegro_image::ImageAddon::init(&core) {
+            Ok(i) => i,
             Err(e) => return Err(EngineError::ImageAddon(e)),
-        }
+        };
 
-        let font_addon: allegro_font::FontAddon;
-        match allegro_font::FontAddon::init(&core) {
-            Ok(f) => font_addon = f,
+        let font_addon = match allegro_font::FontAddon::init(&core) {
+            Ok(f) => f,
             Err(e) => return Err(EngineError::FontAddon(e)),
-        }
+        };
 
         // load bitmaps TODO
         let mut bitmaps: Vec<allegro::Bitmap> = Vec::new();
-        for i in 0..PATH_NAMES.len() {
-            match allegro::Bitmap::load(&core, PATH_NAMES[i]) {
+        for path in &PATH_NAMES {
+            match allegro::Bitmap::load(&core, path) {
                 Ok(b) => bitmaps.push(b),
                 Err(_) => return Err(
                     EngineError::LoadBitmap(
-                        format!("Failed to load bitmap {}", PATH_NAMES[i])
+                        format!("Failed to load bitmap {}", path)
                     )
                 ),
             }
         }
 
-        let font: allegro_font::Font;
-        match allegro_font::Font::new_builtin(&font_addon) {
-            Ok(f) => font = f,
+        let font = match allegro_font::Font::new_builtin(&font_addon) {
+            Ok(f) => f,
             Err(_) => return Err(EngineError::LoadFonts),
-        }
+        };
 
-        let timer: allegro::Timer;
-        match allegro::Timer::new(&core, 1.0 / fps as f64) {
-            Ok(t) => timer = t,
+        let timer = match allegro::Timer::new(&core, 1.0 / fps as f64) {
+            Ok(t) => t,
             Err(_) => return Err(EngineError::Timer),
-        }
+        };
 
-        if let Err(_) = allegro::core::Core::install_keyboard(&core) {
+        if allegro::core::Core::install_keyboard(&core).is_err() {
             return Err(EngineError::Keyboard);
         }
-        if let Err(_) = allegro::core::Core::install_mouse(&core) {
+        if allegro::core::Core::install_mouse(&core).is_err() {
             return Err(EngineError::Mouse);
         }
         
@@ -152,7 +145,7 @@ impl Engine {
         event_queue.register_event_source(core.get_keyboard_event_source().unwrap());
         event_queue.register_event_source(core.get_mouse_event_source().unwrap());
         
-        return Ok(Engine {
+        Ok(Self {
             core,
             event_queue,
             display,
@@ -162,7 +155,7 @@ impl Engine {
             _font: font,
             bitmaps,
             timer,
-        });
+        })
     }
     pub fn start_timer(&self) {
         self.timer.start();
