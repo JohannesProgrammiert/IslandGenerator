@@ -34,8 +34,8 @@ impl Renderer {
         let egui_screen_size = egui::Rect {
             min: egui::Pos2 { x: 0.0, y: 0.0 },
             max: egui::Pos2 {
-                x: init_settings.screen_size.x(),
-                y: init_settings.screen_size.y(),
+                x: init_settings.screen_size.x,
+                y: init_settings.screen_size.y,
             },
         };
         let egui_ctx = egui::Context::default();
@@ -53,10 +53,12 @@ impl Renderer {
         let mut gui_info = gui::GuiInfo::default();
         let rendered_screen_area = ScreenRect::new(
             ScreenCoordinate::new(0.0, 0.0),
-            init_settings.screen_size - ScreenCoordinate::new(gui_info.min_side_panel_width, 0.0),
+            (init_settings.screen_size - ScreenCoordinate::new(gui_info.min_side_panel_width, 0.0)).to_size(),
         );
         gui_info.rendered_rect = rendered_screen_area;
         let map_renderer = MapRenderer::new(&*engine.core);
+        let camera_start_pos = WorldCoordinate::new(0.0, 0.0);
+        let s2w = gen_s2w_matrix(init_settings.scale, camera_start_pos);
         Ok(Renderer {
             settings: init_settings,
             engine,
@@ -64,11 +66,7 @@ impl Renderer {
             mouse: ScreenCoordinate::new(0.0, 0.0),
             apparent_tile_size: glob::TILE_SIZE * init_settings.scale,
             rendered_screen_area,
-            screen_on_world: WorldRect::from_screen(
-                rendered_screen_area,
-                init_settings.scale,
-                WorldCoordinate::new(0.0, 0.0),
-            ),
+            screen_on_world: visible_world_rect(rendered_screen_area, s2w),
             rendered_world_area: WorldRect::default(),
             gui_info,
             last_draw: std::time::Instant::now(),
@@ -79,11 +77,8 @@ impl Renderer {
     const MAX_SCALE: f32 = 7.0;
     const MIN_SCALE: f32 = 0.2;
     pub fn next_frame(&mut self, world: &World) -> RendererFeedback {
-        self.screen_on_world = WorldRect::from_screen(
-            self.rendered_screen_area,
-            self.settings.scale,
-            world.screen_pos,
-        );
+        let s2w = gen_s2w_matrix(self.settings.scale, world.screen_pos);
+        self.screen_on_world = visible_world_rect(self.rendered_screen_area, s2w);
         let mut ret = RendererFeedback::new();
         let mut redraw: bool = false;
         loop {
@@ -153,43 +148,23 @@ impl Renderer {
         }
         if redraw {
             self.map_renderer.update(&world, &*self.engine.core, &*self.engine.display);
-            let mouse_in_world = WorldCoordinate::from_screen(
-                self.mouse,
-                self.screen_on_world.upper_left(),
-                self.settings.scale,
-            );
+            let s2w = gen_s2w_matrix(self.settings.scale, world.screen_pos);
+            let mouse_in_world = s2w.transform_point(self.mouse);
             ret.mouse.pos_diff = ret.mouse.pos - mouse_in_world;
             ret.mouse.pos = mouse_in_world;
-            // check if corners are outside of world -> shift loaded world
-            /* if self.screen_on_world.upper_left().x() <= world.tiles[0][0].pos().x() {
-            println!("Extend west!");
-            ret.extend_request = Direction::West;
-        } else if self.screen_on_world.upper_right().y() <= world.tiles[0][0].pos().y() {
-            println!("Extend north!");
-            ret.extend_request = Direction::North;
-        } else if self.screen_on_world.lower_right().x()
-            >= world.tiles.last().unwrap()[0].pos().x()
-            {
-            println!("Extend east!");
-            ret.extend_request = Direction::East;
-        } else if self.screen_on_world.lower_left().y()
-            >= world.tiles[0].last().unwrap().pos().y()
-            {
-            println!("Extend south!");
-            ret.extend_request = Direction::South;
-        }*/
 
             self.draw(&world, &ret);
-            self.rendered_world_area = WorldRect::new(
+            let points = vec![
                 WorldCoordinate::new(
-                    self.screen_on_world.upper_left().x(),
-                    self.screen_on_world.upper_right().y(),
+                    self.screen_on_world.min_x(),
+                    self.screen_on_world.min_y(),
                 ),
                 WorldCoordinate::new(
-                    self.screen_on_world.lower_right().x(),
-                    self.screen_on_world.lower_left().y(),
+                    self.screen_on_world.max_x(),
+                    self.screen_on_world.max_y(),
                 ),
-            );
+            ];
+            self.rendered_world_area = WorldRect::from_points(points.into_iter());
             ret.loaded_world_area = self.rendered_world_area;
         }
         ret.update_necessary = redraw;
@@ -200,11 +175,10 @@ impl Renderer {
         self.apparent_tile_size = glob::TILE_SIZE * self.settings.scale;
         self.rendered_screen_area = ScreenRect::new(
             ScreenCoordinate::new(0.0, 0.0),
-            self.settings.screen_size
-                - ScreenCoordinate::new(self.gui_info.min_side_panel_width, 0.0),
+            (self.settings.screen_size - ScreenCoordinate::new(self.gui_info.min_side_panel_width, 0.0)).to_size(),
         );
-        self.screen_on_world =
-            WorldRect::from_screen(self.rendered_screen_area, self.settings.scale, screen_pos);
+        let s2w = gen_s2w_matrix(self.settings.scale, screen_pos);
+        self.screen_on_world = visible_world_rect(self.rendered_screen_area, s2w);
     }
 
     fn draw(&mut self, world: &World, fb: &RendererFeedback) {
@@ -215,7 +189,7 @@ impl Renderer {
             .core
             .clear_to_color(allegro::Color::from_rgb_f(0.0, 0.0, 0.0));
         if self.gui_info.show_map {
-            self.map_renderer.draw(&*self.engine.core, self.rendered_screen_area.upper_left(), world);
+            self.map_renderer.draw(&*self.engine.core, self.rendered_screen_area.origin, world);
             self.gui_info.drawn_tiles = 0;
         } else {
             self.engine.core.hold_bitmap_drawing(true);
@@ -226,61 +200,44 @@ impl Renderer {
         self.gui_info.rendered_rect = self.rendered_screen_area;
         self.egui_engine.draw(gui::draw_gui, &mut self.gui_info);
         self.rendered_screen_area = self.gui_info.rendered_rect; // copy back user values
-        self.screen_on_world = WorldRect::from_screen(
-            self.rendered_screen_area,
-            self.settings.scale,
-            world.screen_pos,
-        );
+        let s2w = gen_s2w_matrix(self.settings.scale, world.screen_pos);
+        self.screen_on_world = visible_world_rect(self.rendered_screen_area, s2w);
         self.engine.core.flip_display();
     }
     fn draw_world(&self, world: &World, feedback: &RendererFeedback) -> usize {
         let mut drawn_cells = 0;
         let flags = allegro::core::FLIP_NONE;
+        let w2s = gen_w2s_matrix(self.settings.scale, world.screen_pos);
         for island in &world.islands {
             if !island.clipping_rect.intersects(&self.rendered_world_area) {
+                log::trace!("Island {:?} does not intersect rendered area {:?}", island, self.rendered_world_area);
                 continue;
             }
-            // println!("Island intersects world");
             for x in 0..island.tiles.len() {
                 for tile in &island.tiles[x] {
-                    // if tile.tile_type == Water {
-                    //   continue;
-                    // }
                     let tile_pos = tile.pos;
-                    let tile_screen_pos = ScreenCoordinate::from_world(
-                        tile_pos,
-                        self.screen_on_world.upper_left(),
-                        self.settings.scale,
-                    );
+                    let tile_screen_pos = w2s.transform_point(tile_pos);
                     let tile_screen_base = tile_screen_pos
                         - ScreenCoordinate::new(
                             128.0 * self.settings.scale / 2.0,
                             128.0 * self.settings.scale / 2.0,
                         );
                     // skip if tile is out of screen
-                    if tile_screen_base.x() < self.rendered_screen_area.upper_left().x() - 2.0 * self.apparent_tile_size.x()
-                        || tile_screen_base.y() < self.rendered_screen_area.upper_left().y() - 4.0 * self.apparent_tile_size.y()
-                        || tile_screen_base.x() >= self.rendered_screen_area.upper_right().x()
-                        || tile_screen_base.y() >= self.rendered_screen_area.lower_right().y()
+                    if tile_screen_base.x < self.rendered_screen_area.min_x() - 2.0 * self.apparent_tile_size.x
+                        || tile_screen_base.y < self.rendered_screen_area.min_y() - 4.0 * self.apparent_tile_size.y
+                        || tile_screen_base.x >= self.rendered_screen_area.max_x()
+                        || tile_screen_base.y >= self.rendered_screen_area.max_y()
+
                     {
                         continue;
                     }
                     let bitmap: engine::TextureType;
                     if tile.height <= 0.0 {
                         continue;
-                        // bitmap = engine::TextureType::Water
                     }
                     else {
                         bitmap = engine::TextureType::Tile;
                     }
-                    // else if tile.height <= 1.0 {
-                    //     bitmap = engine::TextureType::Sand;
-                    // }
-                    // else if tile.height <= 2.0 {
-                    // }
-                    // else {
-                    //     bitmap = engine::TextureType::Rock;
-                    // }
                     self.engine.core.draw_tinted_scaled_rotated_bitmap_region(
                         &self.engine.bitmaps[bitmap as usize],
                         // texture start
@@ -293,18 +250,18 @@ impl Renderer {
                         0.0,
                         0.0,
                         // position
-                        tile_screen_base.x(),
-                        tile_screen_base.y(),
+                        tile_screen_base.x,
+                        tile_screen_base.y,
                         self.settings.scale,
                         self.settings.scale,
                         0.0,
                         flags,
                     );
                     drawn_cells += 1;
-                    if feedback.mouse.pos.x() > tile_pos.x()
-                        && feedback.mouse.pos.x() < (tile_pos.x() + 1.0)
-                        && feedback.mouse.pos.y() > tile_pos.y()
-                        && feedback.mouse.pos.y() < (tile_pos.y() + 1.0)
+                    if feedback.mouse.pos.x > tile_pos.x
+                        && feedback.mouse.pos.x < (tile_pos.x + 1.0)
+                        && feedback.mouse.pos.y > tile_pos.y
+                        && feedback.mouse.pos.y < (tile_pos.y + 1.0)
                     {
                         self.engine.core.draw_tinted_scaled_rotated_bitmap_region(
                             &self.engine.bitmaps[engine::TextureType::FocusedGreen as usize],
@@ -312,14 +269,14 @@ impl Renderer {
                             0.0,
                             0.0,
                             // texture dimensions
-                            glob::TILE_TEXTURE_SIZE.x(),
-                            glob::TILE_TEXTURE_SIZE.y(),
+                            glob::TILE_TEXTURE_SIZE.x,
+                            glob::TILE_TEXTURE_SIZE.y,
                             allegro::Color::from_rgb_f(1.0, 1.0, 1.0),
                             0.0,
                             0.0,
                             // position
-                            tile_screen_base.x(),
-                            tile_screen_base.y(),
+                            tile_screen_base.x,
+                            tile_screen_base.y,
                             self.settings.scale,
                             self.settings.scale * glob::PERSPECTIVE_DISTORTION_Y,
                             0.0,

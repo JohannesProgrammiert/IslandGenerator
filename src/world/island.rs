@@ -1,6 +1,7 @@
 use crate::glob::types::*;
-use crate::world::{Tile};
+use crate::world::Tile;
 use rand::distributions::Distribution;
+#[derive(Debug)]
 pub struct Island {
     pub clipping_rect: WorldRect,
     pub tiles: Vec<Vec<Tile>>,
@@ -31,9 +32,9 @@ impl Island {
         let mut randmap: Vec<Vec<f32>> = vec![vec![0.0; randmap_size]; randmap_size];
 
         // define area in which to apply diamond-square algorithm
-        let area = Rect::new(
-            Coord::new(1, 1),
-            Coord::new(randmap.len()-2, randmap[0].len()-2));
+        let area = euclid::default::Rect::<usize>::new(
+            euclid::default::Point2D::new(1, 1),
+            euclid::default::Size2D::new(randmap.len()-2, randmap[0].len()-2));
 
         Island::diamond_square_gen(
             &mut randmap,
@@ -69,15 +70,15 @@ impl Island {
         }
         // calculate clipping rect
         let clipping_rect = WorldRect::new(
-            WorldCoordinate::new(-(cut_heightmap.len() as f32)/2.0, -(cut_heightmap.len() as f32)/2.0) + origin,
-            WorldCoordinate::new((cut_heightmap[0].len() as f32)/2.0, (cut_heightmap[0].len() as f32)/2.0) + origin,
+            origin + WorldVector::new(-(cut_heightmap.len() as f32)/2.0, -(cut_heightmap.len() as f32)/2.0),
+            WorldVector::new(cut_heightmap[0].len() as f32, cut_heightmap[0].len() as f32).to_size(),
         );
 
         let mut tiles: Vec<Vec<Tile>> = Vec::new();
         for x in 0..cut_heightmap.len() as usize {
             let mut new_col: Vec<Tile> = Vec::new();
             for y in 0..cut_heightmap[x].len() as usize {
-                let mut tile = Tile::new(clipping_rect.upper_left() + WorldCoordinate::new(x as f32, y as f32));
+                let mut tile = Tile::new(clipping_rect.origin + WorldVector::new(x as f32, y as f32));
                 tile.height = cut_heightmap[x][y];
                 new_col.push(tile);
             }
@@ -187,66 +188,54 @@ impl Island {
         ret
     }
 
-    fn average_smooth(map: Vec<Vec<f32>>, window_size: isize) -> Vec<Vec<f32>> {
-        let mut ret: Vec<Vec<f32>> = Vec::new();
-        for x in 0..map.len() {
-            let mut new_col: Vec<f32> = Vec::new();
-            for y in 0..map[x].len() {
-                let mut acc: f32 = 0.0;
-                let x_signed = x as isize;
-                let y_signed = y as isize;
-                for dx in -window_size/2..(window_size/2+1) {
-                    for dy in -window_size/2..(window_size/2+1) {
-                        let xx = x_signed+dx;
-                        let yy = y_signed+dy;
-                        if (yy >= 0) && ((yy as usize) < map[x].len())
-                            && (xx >= 0) && ((xx as usize) < map.len()) {
-                                acc += map[xx as usize][yy as usize];
-                            }
-                        else {
-                            acc -= 0.2;
-                        }
-                    }
-                }
-                let avg = acc / window_size as f32;
-                new_col.push(avg);
-            }
-            ret.push(new_col);
-        }
-        ret
-    }
+    // fn average_smooth(map: Vec<Vec<f32>>, window_size: isize) -> Vec<Vec<f32>> {
+    //     let mut ret: Vec<Vec<f32>> = Vec::new();
+    //     for x in 0..map.len() {
+    //         let mut new_col: Vec<f32> = Vec::new();
+    //         for y in 0..map[x].len() {
+    //             let mut acc: f32 = 0.0;
+    //             let x_signed = x as isize;
+    //             let y_signed = y as isize;
+    //             for dx in -window_size/2..(window_size/2+1) {
+    //                 for dy in -window_size/2..(window_size/2+1) {
+    //                     let xx = x_signed+dx;
+    //                     let yy = y_signed+dy;
+    //                     if (yy >= 0) && ((yy as usize) < map[x].len())
+    //                         && (xx >= 0) && ((xx as usize) < map.len()) {
+    //                             acc += map[xx as usize][yy as usize];
+    //                         }
+    //                     else {
+    //                         acc -= 0.2;
+    //                     }
+    //                 }
+    //             }
+    //             let avg = acc / window_size as f32;
+    //             new_col.push(avg);
+    //         }
+    //         ret.push(new_col);
+    //     }
+    //     ret
+    // }
 
     const HEIGHT_RAND_MAX: f32 = 0.1;
     const RAND_MAG: f32 = 0.1;
-    fn diamond_square_gen(map: &mut Vec<Vec<f32>>, corners: Rect<usize>, it: usize) {
+    fn diamond_square_gen(map: &mut Vec<Vec<f32>>, corners: euclid::default::Rect<usize>, it: usize) {
         if corners.width() < 2 || corners.height() < 2 {
             return;
         }
-        // println!("Terrain generator iteration {}: {:?}", it, corners);
-        let local_center_coord = (corners.upper_left() + corners.lower_right()) / 2;
-        // let global_lower_right = Coord::new(self.tiles.len(), self.tiles[0].len());
-        // let global_center_coord = global_lower_right / 2;
-        // let distance_to_center = f32::sqrt(
-        //     f32::powf(local_center_coord.x() as f32 - global_center_coord.x() as f32, 2.0)
-        //   + f32::powf(local_center_coord.y() as f32 - global_center_coord.y() as f32, 2.0));
-        // println!("{:?} Distance to center {}", local_center_coord, distance_to_center );
-        // let distance_to_ocean = (global_lower_right.x() / 2) as f32 - distance_to_center;
+        let local_center_coord = corners.center();
         let mut rng = rand::thread_rng();
         let mag = f32::powf(2.0, -Island::RAND_MAG * it as f32);
         let die = rand::distributions::Uniform::new(-Island::HEIGHT_RAND_MAX * mag, Island::HEIGHT_RAND_MAX * mag);
-        // let upper_left_adj = corners.upper_left().x() == 0 || corners.upper_left().y() == 0;
-        // let upper_right_adj = (corners.upper_right().x() == (self.tiles.len()-1)) || corners.upper_right().y() == 0;
-        // let lower_right_adj = (corners.lower_right().x() == (self.tiles.len()-1)) || corners.lower_right().y() == (self.tiles[0].len()-1);
-        // let lower_left_adj = (corners.lower_left().x() == 0) || (corners.lower_left().y() == (self.tiles[0].len()-1));
 
-        let upper_left = map[corners.upper_left().x()][corners.upper_left().y()];
-        let lower_left = map[corners.lower_left().x()][corners.lower_left().y()];
-        let upper_right = map[corners.upper_right().x()][corners.upper_right().y()];
-        let lower_right = map[corners.lower_right().x()][corners.lower_right().y()];
+        let upper_left = map[corners.min_x()][corners.min_y()];
+        let lower_left = map[corners.min_x()][corners.max_y()];
+        let upper_right = map[corners.max_x()][corners.min_y()];
+        let lower_right = map[corners.max_y()][corners.max_y()];
         // "diamond step"
         // set center of rect to average plus random
         let center = (upper_left + upper_right + lower_left + lower_right) / 4.0 + die.sample(&mut rng);
-        map[local_center_coord.x()][local_center_coord.y()] += center;
+        map[local_center_coord.x][local_center_coord.y] += center;
         // "square" step
         let center_weight = 2.0;
         let avg_divider = 4.0;
@@ -255,224 +244,36 @@ impl Island {
         let east_average = (upper_right + lower_right + center_weight * center) / avg_divider + die.sample(&mut rng);
         let south_average = (lower_right + lower_left + center_weight * center) / avg_divider + die.sample(&mut rng);
 
-        let west_coord = (corners.upper_left() + corners.lower_left()) / 2;
-        let north_coord = (corners.upper_left() + corners.upper_right()) / 2;
-        let east_coord = (corners.upper_right() + corners.lower_right()) / 2;
-        let south_coord = (corners.lower_right() + corners.lower_left()) / 2;
+        let west_coord = corners.origin + euclid::default::Vector2D::new(0, corners.height() / 2);
+        let north_coord = corners.origin + euclid::default::Vector2D::new(corners.width() / 2, 0);
+        let east_coord = west_coord + euclid::default::Vector2D::new(corners.width(), 0);
+        let south_coord = north_coord + euclid::default::Vector2D::new(0, corners.height());
 
-        map[west_coord.x()][west_coord.y()]   += west_average;
-        map[north_coord.x()][north_coord.y()] += north_average;
-        map[east_coord.x()][east_coord.y()]   += east_average;
-        map[south_coord.x()][south_coord.y()] += south_average;
+        map[west_coord.x][west_coord.y]   += west_average;
+        map[north_coord.x][north_coord.y] += north_average;
+        map[east_coord.x][east_coord.y]   += east_average;
+        map[south_coord.x][south_coord.y] += south_average;
         // sub squares
         let next_squares = [
-            Rect::new(corners.upper_left(), local_center_coord),
-            Rect::new(west_coord, south_coord),
-            Rect::new(north_coord, east_coord),
-            Rect::new(local_center_coord, corners.lower_right())
+            euclid::default::Rect::from_points(vec![corners.origin, local_center_coord].into_iter()),
+            euclid::default::Rect::from_points(vec![west_coord, south_coord].into_iter()),
+            euclid::default::Rect::from_points(vec![north_coord, east_coord].into_iter()),
+            euclid::default::Rect::from_points(vec![local_center_coord, euclid::default::Point2D::new(corners.max_x(), corners.max_y())].into_iter())
         ];
         for square in next_squares {
             Island::diamond_square_gen(map, square, it + 1);
         }
     }
-    /*fn extend(&mut self, dir: Direction) {
-    match dir {
-    Direction::North => {
-    // extend columns in negative direction (-y)
-    let start_pos = self.tiles[0][0].pos - WorldCoordinate::new(0.0, 1.0);
-    for x in 0..self.tiles.len() {
-    let pos = start_pos + WorldCoordinate::new(x as f32, 0.0);
-    self.tiles[x].insert(0, Tile::new(TileType::Water, pos));
-}
-}
-    Direction::East => {
-    // push back new column (+x)
-    let start_pos =
-    self.tiles.last().unwrap()[0].pos + WorldCoordinate::new(1.0, 0.0);
-    let col_size = self.tiles[0].len();
-    let mut new_col: Vec<Tile> = Vec::new();
-    for y in 0..col_size {
-    let pos = start_pos + WorldCoordinate::new(0.0, y as f32);
-    new_col.push(Tile::new(TileType::Water, pos));
-}
-    self.tiles.push(new_col);
-}
-    Direction::South => {
-    // extend cols (+y)
-    let start_pos =
-    self.tiles[0].last().unwrap().pos + WorldCoordinate::new(0.0, 1.0);
-    for x in 0..self.tiles.len() {
-    let pos = start_pos + WorldCoordinate::new(x as f32, 0.0);
-    self.tiles[x].push(Tile::new(TileType::Water, pos));
-}
-}
-    Direction::West => {
-    // insert new column at start (-x)
-    let start_pos = self.tiles[0][0].pos - WorldCoordinate::new(1.0, 0.0);
-    let col_size = self.tiles[0].len();
-    let mut new_col: Vec<Tile> = Vec::new();
-    for y in 0..col_size {
-    let pos = start_pos + WorldCoordinate::new(0.0, y as f32);
-    new_col.push(Tile::new(TileType::Water, pos));
-}
-    self.tiles.insert(0, new_col);
-}
-    _ => return,
-}
-}
-    fn extend_ring(&mut self) -> usize {
-    // check inner ring
-    let mut extension_requests: [Direction; 4] = [Direction::NoDirection; 4];
-    for x in 0..self.tiles.len() {
-    for y in 0..self.tiles[x].len() {
-    // skip all non-ring entries
-    if x > 0 && (x < self.tiles.len() - 1) && y > 0 && y < (self.tiles[x].len() - 1) {
-    continue;
-}
-    // request extension of all borders that contain a non-water tile
-    if self.tiles[x][y].tile_type != TileType::Water {
-    if x == 0 {
-    // extension_requests.push(Direction::North);
-    extension_requests[0] = Direction::West;
-}
-    if y == 0 {
-    // extension_requests.push(Direction::West);
-    extension_requests[1] = Direction::North;
-}
-    if x == self.tiles.len() - 1 {
-    // extension_requests.push(Direction::South);
-    extension_requests[2] = Direction::East;
-}
-    if y == self.tiles[x].len() - 1 {
-    // extension_requests.push(Direction::East);
-    extension_requests[3] = Direction::South;
-}
-}
-}
-}
-    for dir in &extension_requests {
-    // println!("Extending");
-    self.extend(*dir);
-}
-    self.clipping_rect = WorldRect::new(
-    self.tiles[0][0].pos,
-    self.tiles.last().unwrap().last().unwrap().pos,
-);
-    for request in extension_requests {
-    if request != Direction::NoDirection {
-    return 1;
-}
-}
-    return 0;
-}
-    fn interpolate(neighbour_score: f32, size_score: f32) -> TileType {
-    // size reduces probability of non-water
-    // neighbours increase the probability
-    // max neighbours = 3
-    let mut rng = rand::thread_rng();
-    // let size_rand_val = die.sample(&mut rng);
-    // let mut rand_max: u32 = (100.0/neighbour_score/neighbour_score + size_score - size_rand_val) as u32;
-    let die = rand::distributions::Uniform::new(150.0, 350.0);
-    // println!("neighbours: {} size: {}", neighbour_score, size_score);
-    let mut probability: f64 = (neighbour_score * neighbour_score / 25.0 * die.sample(&mut rng)
-    / f32::powf(size_score - 8.8, 0.5)) as f64;
-    if probability >= 1.0 {
-    probability = 0.999;
-}
-    if probability < 0.2 {
-    probability = 0.0;
-}
-    // first die - hard code probability
-    if size_score <= 9.0 {
-    probability = 0.99;
-}
-    // println!("probability {}", probability);
-    let die = rand::distributions::Bernoulli::new(probability).unwrap();
-    // let die = rand::distributions::Uniform::from(0..rand_max);
-    let rand_val = die.sample(&mut rng);
-    if rand_val {
-    return TileType::Earth;
-}
-    return TileType::Water;
-}
-    fn interpolate_outer(&mut self) {
-    // calculate score from size
-    let size_score = self.tiles.len() * self.tiles[0].len();
-    for x in 0..self.tiles.len() {
-    for y in 0..self.tiles[0].len() {
-    // skip all non-ring entries
-    // first check borders then corners because corners have less neighbours
-    if x > 0 && (x < self.tiles.len() - 1) && y > 0 && (y < self.tiles[0].len() - 1) {
-    continue;
-}
-    // correct corners
-    let mut corner_correction: f32 = 0.0;
-    if (x == 0 && y == 0)
-    || (x == 0 && (y == self.tiles[x].len() - 1))
-    || ((x == self.tiles.len() - 1) && y == 0)
-    || ((x == self.tiles.len() - 1) && (y == self.tiles[x].len() - 1))
-    {
-    corner_correction = 1.0;
-}
-    // correct next-to-corners
-    if y == 0 {
-    if x == 1 || x == (self.tiles.len()-2) {
-    corner_correction = 0.5;
-
-}
-}
-    else if y == 1 {
-    if x == 0 || (x == self.tiles.len() -1) {
-    corner_correction = 0.5;
-}
-
-}
-    else if y == (self.tiles[x].len()-2) {
-    if x == 0 || (x == self.tiles.len() -1) {
-    corner_correction = 0.5;
-}
-}
-    else if y == (self.tiles[x].len()-1) {
-    if x == 1 || x == (self.tiles.len()-2) {
-    corner_correction = 0.5;
-}
-}
-    self.tiles[x][y].tile_type = Island::interpolate(self.neighbour_score(x as usize, y as usize) as f32 + corner_correction, size_score as f32);
-}
-}
-}
-
-    fn neighbour_score(&self, x: usize, y: usize) -> usize {
-    let mut score = 0;
-    let x_signed = x as isize;
-    let y_signed = y as isize;
-    for i in -1..2 as isize {
-    for j in -1..2 as isize {
-    // skip out-of-map tiles
-    if (x_signed + i) < 1 || (x_signed + i) > ((self.tiles.len() - 2) as isize) {
-    continue;
-}
-    if (y_signed + j) < 1
-    || (y_signed + j) > ((self.tiles[(x_signed + i) as usize].len() - 2) as isize)
-    {
-    continue;
-}
-    if self.tiles[(x_signed + i) as usize][(y_signed + j) as usize].tile_type
-    != TileType::Water
-    {
-    score += 1;
-}
-}
-}
-    return score;
-}*/
 
     pub fn shift(&mut self, offset: WorldCoordinate) {
+        let shift_matrix = euclid::Translation2D::<f32, WorldSpace, WorldSpace>::new(
+            offset.x, offset.y,
+        );
         for col in &mut self.tiles {
             for tile in col {
-                tile.pos += offset;
+                tile.pos = shift_matrix.transform_point(tile.pos);
             }
         }
-        self.clipping_rect.shift(offset);
+        self.clipping_rect = shift_matrix.transform_rect(&self.clipping_rect);
     }
 }

@@ -45,13 +45,13 @@ pub fn draw_gui(ctx: &egui::Context, args: &mut GuiInfo) {
                 SidePanelTab::Debug => {
                     ui.label(format!("Drawn Tiles: {}", args.drawn_tiles));
                     ui.label(format!("FPS: {}", args.fps));
-                    let mut render_width = args.rendered_rect.upper_right().x() - args.rendered_rect.upper_left().x();
-                    let mut render_height = args.rendered_rect.lower_left().y() - args.rendered_rect.upper_left().y();
+                    let mut render_width = args.rendered_rect.width();
+                    let mut render_height = args.rendered_rect.height();
                     ui.add(egui::Slider::new(&mut render_width, 1.0..=4000.0).text("Rendered width"));
                     ui.add(egui::Slider::new(&mut render_height, 1.0..=4000.0).text("Rendered height"));
-                    args.rendered_rect = ScreenRect::new(ScreenCoordinate::new(0.0, 0.0), ScreenCoordinate::new(render_width, render_height));
-                    ui.label(format!("Mouse X: {}", args.mouse_pos.x()));
-                    ui.label(format!("Mouse Y: {}", args.mouse_pos.y()));
+                    args.rendered_rect = ScreenRect::new(ScreenCoordinate::new(0.0, 0.0), ScreenVector::new(render_width, render_height).to_size());
+                    ui.label(format!("Mouse X: {}", args.mouse_pos.x));
+                    ui.label(format!("Mouse Y: {}", args.mouse_pos.y));
                 }
             }
         });
@@ -60,10 +60,6 @@ pub fn draw_gui(ctx: &egui::Context, args: &mut GuiInfo) {
             args.show_map = !args.show_map;
         }
     });
-    /*egui::TopBottomPanel::top("Resources").show(&ctx, |ui| {
-        ui.label("Hello resources");
-        ui.add(egui::ProgressBar::new(0.5));
-    });*/
 }
 
 impl Default for GuiInfo {
@@ -73,7 +69,7 @@ impl Default for GuiInfo {
             active_side_panel_tab: SidePanelTab::Main,
             min_side_panel_width: 200.0,
             fps: 0.0,
-            rendered_rect: ScreenRect::new(ScreenCoordinate::new(0.0, 0.0), ScreenCoordinate::new(1.0, 1.0)),
+            rendered_rect: ScreenRect::from_size(ScreenVector::new(1.0, 1.0).to_size()),
             mouse_pos: WorldCoordinate::new(0.0, 0.0),
             show_map: false,
         }

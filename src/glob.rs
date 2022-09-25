@@ -10,7 +10,3 @@ pub const TILE_TEXTURE_SIZE: types::ScreenCoordinate = types::ScreenCoordinate::
 pub static TILE_SIZE: types::ScreenCoordinate = types::ScreenCoordinate::new(
     TILE_LEN,
     (TILE_LEN) * PERSPECTIVE_DISTORTION_Y);
-const TILE_QUARTER: types::ScreenCoordinate = types::ScreenCoordinate::new(
-    TILE_LEN / 2.0,
-    ((TILE_LEN) * PERSPECTIVE_DISTORTION_Y) / 2.0,
-);

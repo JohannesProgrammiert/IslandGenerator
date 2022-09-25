@@ -29,7 +29,7 @@ impl MapRenderer {
         )
             .expect("Cannot create map texture");
         allegro_core.set_target_bitmap(Some(&map));
-        log::debug!("Number of islands {}", world.islands.len());
+        log::trace!("Number of islands {}", world.islands.len());
         for x in 0..world.clipping_rect.width() as usize {
             for y in 0..world.clipping_rect.height() as usize {
                 allegro_core.put_pixel(x as i32, y as i32, allegro::Color::from_rgba(255, 255, 255, 255));
@@ -39,11 +39,11 @@ impl MapRenderer {
             for x in 0..CHUNK_SIZE as usize {
                 for y in 0..CHUNK_SIZE as usize {
                     let pos = WorldCoordinate::new(
-                        ind.x() as f32 * CHUNK_SIZE + x as f32,
-                        ind.y() as f32 * CHUNK_SIZE + y as f32,
-                    ) - world.clipping_rect.upper_left();
+                        ind.x as f32 * CHUNK_SIZE + x as f32,
+                        ind.y as f32 * CHUNK_SIZE + y as f32,
+                    ) - world.clipping_rect.origin;
                     let color = allegro::Color::from_rgba(0, 255, 0, 128);
-                    allegro_core.put_pixel(pos.x() as i32, pos.y() as i32, color);
+                    allegro_core.put_pixel(pos.x as i32, pos.y as i32, color);
                 }
             }
         }
@@ -63,8 +63,8 @@ impl MapRenderer {
                     else {
                         color = allegro::Color::from_rgba(128, 128, 128, 255);
                     }
-                    let pos = tile.pos - world.clipping_rect.upper_left();
-                    allegro_core.put_pixel(pos.x() as i32, pos.y() as i32, color);
+                    let pos = tile.pos - world.clipping_rect.origin;
+                    allegro_core.put_pixel(pos.x as i32, pos.y as i32, color);
                 }
             }
         }
@@ -82,14 +82,14 @@ impl MapRenderer {
             0.0,
             0.0,
             // texture dimensions
-            self.map_size.x(),
-            self.map_size.y(),
+            self.map_size.x,
+            self.map_size.y,
             allegro::Color::from_rgb_f(1.0, 1.0, 1.0),
             0.0,
             0.0,
             // position
-            pos.x(),
-            pos.y(),
+            pos.x,
+            pos.y,
             // scale
             1.0,
             1.0,
@@ -98,18 +98,18 @@ impl MapRenderer {
         );
         allegro_core.draw_pixel(
             // position
-            pos.x() + world.screen_pos.x() - world.clipping_rect.upper_left().x(),
-            pos.y() + world.screen_pos.y() - world.clipping_rect.upper_left().y(),
+            pos.x + world.screen_pos.x - world.clipping_rect.origin.x,
+            pos.y + world.screen_pos.y - world.clipping_rect.origin.y,
             allegro::Color::from_rgb(255, 0, 0));
         allegro_core.draw_pixel(
             // position
-            pos.x() + world.screen_pos.x() - world.clipping_rect.upper_left().x()-1.0,
-            pos.y() + world.screen_pos.y() - world.clipping_rect.upper_left().y(),
+            pos.x + world.screen_pos.x - world.clipping_rect.origin.x-1.0,
+            pos.y + world.screen_pos.y - world.clipping_rect.origin.y,
             allegro::Color::from_rgb(255, 0, 0));
         allegro_core.draw_pixel(
             // position
-            pos.x() + world.screen_pos.x() - world.clipping_rect.upper_left().x()+1.0,
-            pos.y() + world.screen_pos.y() - world.clipping_rect.upper_left().y(),
+            pos.x + world.screen_pos.x - world.clipping_rect.origin.x+1.0,
+            pos.y + world.screen_pos.y - world.clipping_rect.origin.y,
             allegro::Color::from_rgb(255, 0, 0));
     }
 }

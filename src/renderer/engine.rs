@@ -1,4 +1,4 @@
-use crate::glob::{*, types::Coordinate};
+use crate::glob::*;
 use std::rc::Rc;
 // use std::ops::Drop;
 
@@ -16,6 +16,7 @@ const PATH_NAMES: [&str; TextureType::NumBitmaps as usize] = [
     "textures/building/forester.png",
 ];
 
+#[allow(unused)]
 pub enum TextureType {
     FocusedRed = 0,
     Tile,
@@ -60,7 +61,7 @@ impl Engine {
 
         core.set_new_display_flags(allegro::display::RESIZABLE);
         let display: allegro::Display;
-        match allegro::Display::new(&core, screen_size.x() as i32, screen_size.y() as i32) {
+        match allegro::Display::new(&core, screen_size.x as i32, screen_size.y as i32) {
             Ok(d) => display = d,
             Err(_) => return Err("Cannot create display".to_string()),
         }
@@ -120,15 +121,15 @@ impl Engine {
         event_queue.register_event_source(core.get_mouse_event_source().unwrap());
         
         return Ok(Engine {
-            core: core,
-            event_queue: event_queue,
-            display: display,
-            primitives_addon: primitives_addon,
+            core,
+            event_queue,
+            display,
+            primitives_addon,
             _image_addon: image_addon,
             _font_addon: font_addon,
             _font: font,
-            bitmaps: bitmaps,
-            timer: timer,
+            bitmaps,
+            timer,
         });
     }
     pub fn start_timer(&self) {

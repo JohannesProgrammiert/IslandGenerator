@@ -30,7 +30,7 @@ pub struct MouseState {
     pub middle: bool,
     pub right: bool,
     pub pos: types::WorldCoordinate,
-    pub pos_diff: types::WorldCoordinate,
+    pub pos_diff: types::WorldVector,
 }
 
 impl MouseState {
@@ -40,7 +40,7 @@ impl MouseState {
             middle: false,
             right: false,
             pos: types::WorldCoordinate::new(0.0, 0.0),
-            pos_diff: types::WorldCoordinate::new(0.0, 0.0),
+            pos_diff: types::WorldVector::new(0.0, 0.0),
         }
     }
 }
