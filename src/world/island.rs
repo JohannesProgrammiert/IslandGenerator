@@ -1,9 +1,13 @@
 use crate::glob::types::*;
-use crate::world::Tile;
+mod tile;
+use tile::*;
 use rand::distributions::Distribution;
 #[derive(Debug)]
+/// Definition of an island
 pub struct Island {
+    /// Minimum rectangle in world coordinates that includes all tiles
     pub clipping_rect: WorldRect,
+    /// Tiles the island is made of
     pub tiles: Vec<Vec<Tile>>,
 }
 const MAX_RANDMAP_EXP: usize = 5;
@@ -20,6 +24,7 @@ const GAUSS_WINDOW: [[f32; GAUSS_WINDOW_SIZE]; GAUSS_WINDOW_SIZE] = [
     [0.00002292, 0.00078633, 0.00655965, 0.01330373, 0.00655965, 0.00078633, 0.00002292],
     [0.00000067, 0.00002292, 0.00019117, 0.00038771, 0.00019117, 0.00002292, 0.00000067]];
 impl Island {
+    /// try to create an island at `origin`
     pub fn new(origin: WorldCoordinate) -> Option<Self> {
         // 1. generate random map with diamond square algorithm
         // note: array must be quadratic with edge len 2^n + 1
@@ -91,8 +96,8 @@ impl Island {
         })
     }
 
+    /// create minimal rectangle
     fn cut_map(map: Vec<Vec<f32>>) -> Vec<Vec<f32>> {
-        // cut to create minimal rectangle
         // -- find minimal coordinates, find maximum coordinates
         let mut min_col = map.len()-1;
         let mut max_col = 0;
@@ -119,8 +124,8 @@ impl Island {
         cut_heightmap
     }
 
-    // bilinear interpolation of randmap to array of size randmap.len() * interpolation_scale
-    // formula from wikipedia
+    /// bilinear interpolation of randmap to array of size randmap.len() * interpolation_scale
+    /// formula from wikipedia
     fn interpolate(randmap: Vec<Vec<f32>>, interpolation_scale: usize) -> Vec<Vec<f32>> {
         let heightmap_size = (randmap.len()-1) * interpolation_scale;
         let mut ret = vec![vec![0.0; heightmap_size]; heightmap_size];
@@ -129,7 +134,6 @@ impl Island {
                 // according indices in randmap
                 let rand_x = x as f32 / interpolation_scale as f32;
                 let rand_y = y as f32 / interpolation_scale as f32;
-                // println!("x {} y {} rand_x {} rand_y {} inter {}", x, y, rand_x, rand_y, interpolation_scale);
 
                 // upper left corner in randmap
                 let x1 = rand_x as usize;
@@ -137,15 +141,6 @@ impl Island {
                 // lower right corner in randmap
                 let x2 = rand_x as usize + 1;
                 let y2 = rand_y as usize + 1;
-
-                // intermediate results
-                // let x1_dist = (x - (rand_x) * interpolation_scale) as f32;
-                // let x2_dist = ((rand_x+1) * interpolation_scale - x) as f32;
-                // let y1_dist = (y - (rand_y) * interpolation_scale) as f32;
-                // let y2_dist = ((rand_y+1) * interpolation_scale - y) as f32;
-
-                // normalize factor
-                // let div: f32 = (interpolation_scale * interpolation_scale) as f32;
 
                 // not-normalized interpolation
                 let inter: f32 =
@@ -159,6 +154,7 @@ impl Island {
         }
         ret
     }
+    /// 2D Gauss smooth
     fn gauss_smooth(map: Vec<Vec<f32>>) -> Vec<Vec<f32>> {
         let mut ret: Vec<Vec<f32>> = Vec::new();
         for x in 0..map.len() {
@@ -188,37 +184,9 @@ impl Island {
         ret
     }
 
-    // fn average_smooth(map: Vec<Vec<f32>>, window_size: isize) -> Vec<Vec<f32>> {
-    //     let mut ret: Vec<Vec<f32>> = Vec::new();
-    //     for x in 0..map.len() {
-    //         let mut new_col: Vec<f32> = Vec::new();
-    //         for y in 0..map[x].len() {
-    //             let mut acc: f32 = 0.0;
-    //             let x_signed = x as isize;
-    //             let y_signed = y as isize;
-    //             for dx in -window_size/2..(window_size/2+1) {
-    //                 for dy in -window_size/2..(window_size/2+1) {
-    //                     let xx = x_signed+dx;
-    //                     let yy = y_signed+dy;
-    //                     if (yy >= 0) && ((yy as usize) < map[x].len())
-    //                         && (xx >= 0) && ((xx as usize) < map.len()) {
-    //                             acc += map[xx as usize][yy as usize];
-    //                         }
-    //                     else {
-    //                         acc -= 0.2;
-    //                     }
-    //                 }
-    //             }
-    //             let avg = acc / window_size as f32;
-    //             new_col.push(avg);
-    //         }
-    //         ret.push(new_col);
-    //     }
-    //     ret
-    // }
-
     const HEIGHT_RAND_MAX: f32 = 0.1;
     const RAND_MAG: f32 = 0.1;
+    /// Generate terrain with diamond-square algorithm
     fn diamond_square_gen(map: &mut Vec<Vec<f32>>, corners: euclid::default::Rect<usize>, it: usize) {
         if corners.width() < 2 || corners.height() < 2 {
             return;
@@ -228,15 +196,15 @@ impl Island {
         let mag = f32::powf(2.0, -Island::RAND_MAG * it as f32);
         let die = rand::distributions::Uniform::new(-Island::HEIGHT_RAND_MAX * mag, Island::HEIGHT_RAND_MAX * mag);
 
+        // "diamond" step: add average of corners plus random to center of rect
         let upper_left = map[corners.min_x()][corners.min_y()];
         let lower_left = map[corners.min_x()][corners.max_y()];
         let upper_right = map[corners.max_x()][corners.min_y()];
         let lower_right = map[corners.max_y()][corners.max_y()];
-        // "diamond step"
-        // set center of rect to average plus random
         let center = (upper_left + upper_right + lower_left + lower_right) / 4.0 + die.sample(&mut rng);
         map[local_center_coord.x][local_center_coord.y] += center;
-        // "square" step
+
+        // "square" step: add average of corners plus random to borders of rect
         let center_weight = 2.0;
         let avg_divider = 4.0;
         let west_average = (upper_left + lower_left + center_weight * center) / avg_divider + die.sample(&mut rng);
@@ -253,7 +221,8 @@ impl Island {
         map[north_coord.x][north_coord.y] += north_average;
         map[east_coord.x][east_coord.y]   += east_average;
         map[south_coord.x][south_coord.y] += south_average;
-        // sub squares
+
+        // recurse sub squares
         let next_squares = [
             euclid::default::Rect::from_points(vec![corners.origin, local_center_coord].into_iter()),
             euclid::default::Rect::from_points(vec![west_coord, south_coord].into_iter()),
@@ -265,6 +234,10 @@ impl Island {
         }
     }
 
+    /// shift entire island by `offset`
+    ///
+    /// if a new island does not fit into the world immediately (because it intersects other islands)
+    /// it is virtually shifted around to find a suitable place
     pub fn shift(&mut self, offset: WorldCoordinate) {
         let shift_matrix = euclid::Translation2D::<f32, WorldSpace, WorldSpace>::new(
             offset.x, offset.y,

@@ -1,38 +1,43 @@
 use crate::glob::types::*;
 use rand::distributions::Distribution;
-// const MAX_TEMPERATURE: f32 = 50.0;
-// const ZERO_TEMPERATURE_LAT: f32 = 1_000_000.0;
 pub const CHUNK_SIZE: f32 = 128.0;
 pub mod island;
 use island::Island;
 
-pub struct Chunk {
-}
+/// A `Chunk` is currently a placeholder struct to mark a certain world chunk as 'occupied'
+pub struct Chunk {}
 
 impl Chunk {
     pub fn new() -> Self {
-        Chunk {
-        }
+        Chunk {}
     }
 }
+
 pub type ChunkIndex = euclid::default::Point2D<isize>;
+
+/// Game world. Is made out of islands.
 pub struct World {
+    /// islands in this world
     pub islands: Vec<Island>,
+    /// minimum rectangle in world coordinates that contains all islands
     pub clipping_rect: WorldRect,
-    // chunks (indexed by upper left corner) mark world as 'generated' so areas that were visited once do not get re-generated
+    /// chunks (indexed by upper left corner) mark world as 'generated' so areas that were visited once do not get re-generated
     pub chunks: std::collections::HashMap<ChunkIndex, Chunk>,
-    /* Screen center world position */
+    /// Screen center world position
     pub screen_pos: WorldCoordinate,
 }
 impl World {
-    pub fn new(init_pos: WorldCoordinate) -> Self {
+    /// Create empty game world with initial screen position
+    pub fn new(screen_pos: WorldCoordinate) -> Self {
         World {
             islands: Vec::new(),
             clipping_rect: WorldRect::default(),
             chunks: std::collections::HashMap::new(),
-            screen_pos: init_pos, // show on first tile
+            screen_pos, // show on first tile
         }
     }
+
+    /// Generate a new chunk with index `ind`
     pub fn gen_chunk(&mut self, ind: ChunkIndex) {
         // generating this chunk may cause a snowball effect
         let chunk_pos = WorldCoordinate::new(ind.x as f32 * CHUNK_SIZE, ind.y as f32 * CHUNK_SIZE);
@@ -141,33 +146,18 @@ impl World {
             if index.x as f32 * CHUNK_SIZE < min_pos.x {
                 min_pos = WorldCoordinate::new(index.x as f32 * CHUNK_SIZE as f32, min_pos.y);
             }
-            if index.y as f32 * CHUNK_SIZE < min_pos.y {
-                min_pos = WorldCoordinate::new(min_pos.x, index.y as f32 * CHUNK_SIZE);
-            }
-            if index.x as f32 * CHUNK_SIZE + CHUNK_SIZE > max_pos.x {
-                max_pos = WorldCoordinate::new(index.x as f32 * CHUNK_SIZE + CHUNK_SIZE, max_pos.y);
-            }
-            if index.y as f32 * CHUNK_SIZE + CHUNK_SIZE > max_pos.y {
+                                             if index.y as f32 * CHUNK_SIZE < min_pos.y {
+                                                 min_pos = WorldCoordinate::new(min_pos.x, index.y as f32 * CHUNK_SIZE);
+                                             }
+                                                                              if index.x as f32 * CHUNK_SIZE + CHUNK_SIZE > max_pos.x {
+                                                 max_pos = WorldCoordinate::new(index.x as f32 * CHUNK_SIZE + CHUNK_SIZE, max_pos.y);
+                                             }
+                                             if index.y as f32 * CHUNK_SIZE + CHUNK_SIZE > max_pos.y {
                 max_pos = WorldCoordinate::new(max_pos.x, index.y as f32 * CHUNK_SIZE + CHUNK_SIZE);
             }
         }
         let clipping_points = vec![min_pos, max_pos];
         self.clipping_rect = WorldRect::from_points(clipping_points.into_iter());
         log::debug!("New world clipping rect: {:?}", self.clipping_rect);
-    }
-}
-
-#[derive(Debug)]
-pub struct Tile {
-    pub pos: WorldCoordinate,
-    pub height: f32,
-}
-
-impl Tile {
-    pub fn new(pos: WorldCoordinate) -> Self {
-        Tile {
-            pos,
-            height: 0.0,
-        }
     }
 }

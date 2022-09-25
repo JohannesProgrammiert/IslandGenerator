@@ -1,3 +1,17 @@
+//! Single-threaded game
+//!
+//! Game loop visualization:
+//!
+//! ```text
+//!   ┌─────► Renderer──────┐
+//!   │                     ▼
+//! World                 UI input
+//!   ▲                     │
+//!   └─────── game ◄───────┘
+//! ```
+//!
+//! The `Renderer` paints a (readonly) world and detects user input.
+//! The `game` reacts to (readonly) user input and alters the `World` accordingly
 mod game;
 mod glob;
 mod renderer;
@@ -10,8 +24,9 @@ use log::info;
 fn configure_logging() {
     let config_str = include_str!("logging.yaml");
     let config = serde_yaml::from_str(config_str).unwrap();
-    log4rs::init_raw_config(config).unwrap();
+    log4rs::init_raw_config(config).expect("Cannot initialize log4rs config");
 }
+
 fn main() {
     configure_logging();
     let mut world = world::World::new(

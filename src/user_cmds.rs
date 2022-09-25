@@ -1,5 +1,5 @@
 use crate::glob::*;
-const NUM_KEYS: usize = 119;
+pub const NUM_KEYS: usize = 119;
 #[derive(Copy, Clone, PartialEq)]
 pub enum KeyState {
     Pressed,
@@ -13,10 +13,10 @@ pub struct RendererFeedback {
     pub update_necessary: bool,
 }
 
-impl RendererFeedback {
-    pub fn new() -> Self {
+impl Default for RendererFeedback {
+    fn default() -> Self {
         Self {
-            mouse: MouseState::new(),
+            mouse: MouseState::default(),
             exit: false,
             key_states: [KeyState::Released; NUM_KEYS],
             loaded_world_area: types::WorldRect::default(),
@@ -25,6 +25,7 @@ impl RendererFeedback {
     }
 }
 
+#[derive(Copy, Clone, PartialEq)]
 pub struct MouseState {
     pub left: bool,
     pub middle: bool,
@@ -33,8 +34,8 @@ pub struct MouseState {
     pub pos_diff: types::WorldVector,
 }
 
-impl MouseState {
-    fn new() -> Self {
+impl Default for MouseState {
+    fn default() -> Self {
         MouseState {
             left: false,
             middle: false,

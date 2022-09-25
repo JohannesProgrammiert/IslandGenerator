@@ -1,3 +1,4 @@
+//! The renderer renders a `World` (readonly) and detects user input which it hands to the `game``
 mod egui_allegro_backend;
 mod engine;
 mod gui;
@@ -6,7 +7,7 @@ pub mod settings;
 use crate::glob;
 use map::MapRenderer;
 use crate::glob::types::*;
-use crate::user_cmds::{KeyState, RendererFeedback};
+use crate::user_cmds::{KeyState, MouseState, RendererFeedback, NUM_KEYS};
 use crate::world::World;
 use engine::Engine;
 use settings::Settings;
@@ -23,6 +24,8 @@ pub struct Renderer {
     gui_info: gui::GuiInfo,
     last_draw: std::time::Instant,
     map_renderer: MapRenderer,
+    key_states: [KeyState; NUM_KEYS],
+    mouse_state: MouseState,
 }
 use thiserror::Error;
 #[derive(Error, Debug)]
@@ -79,7 +82,9 @@ impl Renderer {
             rendered_world_area: WorldRect::default(),
             gui_info,
             last_draw: std::time::Instant::now(),
-            map_renderer
+            map_renderer,
+            key_states: [KeyState::Released; NUM_KEYS],
+            mouse_state: MouseState::default(),
         })
     }
     const MOUSE_SCALE_FACTOR: f32 = 0.2;
@@ -88,7 +93,7 @@ impl Renderer {
     pub fn next_frame(&mut self, world: &World) -> RendererFeedback {
         let s2w = gen_s2w_matrix(self.settings.scale, world.screen_pos);
         self.screen_on_world = visible_world_rect(self.rendered_screen_area, s2w);
-        let mut ret = RendererFeedback::new();
+        let mut ret = RendererFeedback::default();
         let mut redraw: bool = false;
         loop {
             if self.engine.event_queue.is_empty() {
@@ -109,12 +114,12 @@ impl Renderer {
                         ret.exit = true;
                         return ret;
                     } else if (keycode as usize) < ret.key_states.len() {
-                        ret.key_states[keycode as usize] = KeyState::Pressed;
+                        self.key_states[keycode as usize] = KeyState::Pressed;
                     }
                 }
                 allegro::KeyUp { keycode, .. } => {
                     if (keycode as usize) < ret.key_states.len() {
-                        ret.key_states[keycode as usize] = KeyState::Released;
+                        self.key_states[keycode as usize] = KeyState::Released;
                     }
                 }
                 allegro::MouseAxes { x, y, dz, .. } => {
@@ -141,15 +146,15 @@ impl Renderer {
                     self.apply_settings(world.screen_pos);
                 }
                 allegro::MouseButtonDown { button, .. } => match button {
-                    1 => ret.mouse.left = true,
-                    3 => ret.mouse.middle = true,
-                    2 => ret.mouse.right = true,
+                    1 => self.mouse_state.left = true,
+                    3 => self.mouse_state.middle = true,
+                    2 => self.mouse_state.right = true,
                     _ => {}
                 },
                 allegro::MouseButtonUp { button, .. } => match button {
-                    1 => ret.mouse.left = false,
-                    3 => ret.mouse.middle = false,
-                    2 => ret.mouse.right = false,
+                    1 => self.mouse_state.left = false,
+                    3 => self.mouse_state.middle = false,
+                    2 => self.mouse_state.right = false,
                     _ => {}
                 },
                 _ => {}
@@ -159,10 +164,10 @@ impl Renderer {
             self.map_renderer.update(&world, &*self.engine.core, &*self.engine.display);
             let s2w = gen_s2w_matrix(self.settings.scale, world.screen_pos);
             let mouse_in_world = s2w.transform_point(self.mouse);
-            ret.mouse.pos_diff = ret.mouse.pos - mouse_in_world;
-            ret.mouse.pos = mouse_in_world;
+            self.mouse_state.pos_diff = self.mouse_state.pos - mouse_in_world;
+            self.mouse_state.pos = mouse_in_world;
 
-            self.draw(&world, &ret);
+            self.draw(&world);
             let points = vec![
                 WorldCoordinate::new(
                     self.screen_on_world.min_x(),
@@ -174,8 +179,10 @@ impl Renderer {
                 ),
             ];
             self.rendered_world_area = WorldRect::from_points(points.into_iter());
-            ret.loaded_world_area = self.rendered_world_area;
         }
+        ret.loaded_world_area = self.rendered_world_area;
+        ret.key_states = self.key_states;
+        ret.mouse = self.mouse_state;
         ret.update_necessary = redraw;
         return ret;
     }
@@ -190,7 +197,7 @@ impl Renderer {
         self.screen_on_world = visible_world_rect(self.rendered_screen_area, s2w);
     }
 
-    fn draw(&mut self, world: &World, fb: &RendererFeedback) {
+    fn draw(&mut self, world: &World) {
         let elapsed = self.last_draw.elapsed();
         self.last_draw = std::time::Instant::now();
         self.gui_info.fps = 1.0 / elapsed.as_secs_f32();
@@ -202,10 +209,10 @@ impl Renderer {
             self.gui_info.drawn_tiles = 0;
         } else {
             self.engine.core.hold_bitmap_drawing(true);
-            self.gui_info.drawn_tiles = self.draw_world(world, fb);
+            self.gui_info.drawn_tiles = self.draw_world(world);
             self.engine.core.hold_bitmap_drawing(false);
         }
-        self.gui_info.mouse_pos = fb.mouse.pos;
+        self.gui_info.mouse_pos = self.mouse_state.pos;
         self.gui_info.rendered_rect = self.rendered_screen_area;
         self.egui_engine.draw(gui::draw_gui, &mut self.gui_info);
         self.rendered_screen_area = self.gui_info.rendered_rect; // copy back user values
@@ -213,7 +220,7 @@ impl Renderer {
         self.screen_on_world = visible_world_rect(self.rendered_screen_area, s2w);
         self.engine.core.flip_display();
     }
-    fn draw_world(&self, world: &World, feedback: &RendererFeedback) -> usize {
+    fn draw_world(&self, world: &World) -> usize {
         let mut drawn_cells = 0;
         let flags = allegro::core::FLIP_NONE;
         let w2s = gen_w2s_matrix(self.settings.scale, world.screen_pos);
@@ -267,10 +274,10 @@ impl Renderer {
                         flags,
                     );
                     drawn_cells += 1;
-                    if feedback.mouse.pos.x > tile_pos.x
-                        && feedback.mouse.pos.x < (tile_pos.x + 1.0)
-                        && feedback.mouse.pos.y > tile_pos.y
-                        && feedback.mouse.pos.y < (tile_pos.y + 1.0)
+                    if self.mouse_state.pos.x > tile_pos.x
+                        && self.mouse_state.pos.x < (tile_pos.x + 1.0)
+                        && self.mouse_state.pos.y > tile_pos.y
+                        && self.mouse_state.pos.y < (tile_pos.y + 1.0)
                     {
                         self.engine.core.draw_tinted_scaled_rotated_bitmap_region(
                             &self.engine.bitmaps[engine::TextureType::FocusedGreen as usize],
