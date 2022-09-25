@@ -226,24 +226,25 @@ impl Renderer {
         let w2s = gen_w2s_matrix(self.settings.scale, world.screen_pos);
         for island in &world.islands {
             if !island.clipping_rect.intersects(&self.rendered_world_area) {
-                log::trace!("Island rect {:?} does not intersect rendered area {:?}", island.clipping_rect, self.rendered_world_area);
+                log::trace!(
+                    "Island rect {:?} does not intersect rendered area {:?}",
+                    island.clipping_rect,
+                    self.rendered_world_area
+                );
                 continue;
             }
-            for x in 0..island.tiles.len() {
-                for tile in &island.tiles[x] {
-                    let tile_pos = tile.pos;
-                    let tile_screen_pos = w2s.transform_point(tile_pos);
-                    let tile_screen_base = tile_screen_pos
-                        - ScreenCoordinate::new(
-                            128.0 * self.settings.scale / 2.0,
-                            128.0 * self.settings.scale / 2.0,
-                        );
+            for tile_col in &island.tiles {
+                for tile in tile_col {
+                    let tile_screen_pos = w2s.transform_point(tile.pos);
+                    let tile_screen_base = tile_screen_pos - ScreenCoordinate::new(
+                        128.0 * self.settings.scale / 2.0,
+                        128.0 * self.settings.scale / 4.0,
+                    );
                     // skip if tile is out of screen
                     if tile_screen_base.x < self.rendered_screen_area.min_x() - 2.0 * self.apparent_tile_size.x
                         || tile_screen_base.y < self.rendered_screen_area.min_y() - 4.0 * self.apparent_tile_size.y
                         || tile_screen_base.x >= self.rendered_screen_area.max_x()
                         || tile_screen_base.y >= self.rendered_screen_area.max_y()
-
                     {
                         continue;
                     }
@@ -273,10 +274,10 @@ impl Renderer {
                         flags,
                     );
                     drawn_cells += 1;
-                    if self.mouse_state.pos.x > tile_pos.x
-                        && self.mouse_state.pos.x < (tile_pos.x + 1.0)
-                        && self.mouse_state.pos.y > tile_pos.y
-                        && self.mouse_state.pos.y < (tile_pos.y + 1.0)
+                    if self.mouse_state.pos.x > tile.pos.x
+                        && self.mouse_state.pos.x < (tile.pos.x + 1.0)
+                        && self.mouse_state.pos.y > tile.pos.y
+                        && self.mouse_state.pos.y < (tile.pos.y + 1.0)
                     {
                         self.engine.core.draw_tinted_scaled_rotated_bitmap_region(
                             &self.engine.bitmaps[engine::TextureType::FocusedGreen as usize],

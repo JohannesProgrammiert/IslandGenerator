@@ -3,6 +3,7 @@ use rand::distributions::Distribution;
 pub const CHUNK_SIZE: f32 = 128.0;
 pub mod island;
 use island::Island;
+use log::debug;
 
 /// A `Chunk` is currently a placeholder struct to mark a certain world chunk as 'occupied'
 pub struct Chunk {}
@@ -42,7 +43,7 @@ impl World {
     pub fn gen_chunk(&mut self, ind: ChunkIndex) {
         // generating this chunk may cause a snowball effect
         let chunk_pos = WorldCoordinate::new(ind.x as f32 * CHUNK_SIZE, ind.y as f32 * CHUNK_SIZE);
-        log::debug!("Generating chunk {} {}", chunk_pos.x, chunk_pos.y);
+        debug!("Generating chunk {} {}", chunk_pos.x, chunk_pos.y);
         let mut rng = rand::thread_rng();
         let die = rand::distributions::Bernoulli::new(0.5).unwrap();
         if die.sample(&mut rng) {
@@ -107,11 +108,11 @@ impl World {
                     );
                     if chunk_min == chunk_max {
                         if let std::collections::hash_map::Entry::Vacant(e) = self.chunks.entry(chunk_min) {
-                            log::debug!("Register chunk at {}, {}", chunk_min.x, chunk_min.y);
+                            debug!("Register chunk at {}, {}", chunk_min.x, chunk_min.y);
                             e.insert(Chunk::new());
                         }
                         else {
-                            log::debug!("Chunk {} {} Already exists", chunk_min.x, chunk_min.y);
+                            debug!("Chunk {} {} Already exists", chunk_min.x, chunk_min.y);
                         }
                     }
                     else {
@@ -122,21 +123,21 @@ impl World {
                                     y,
                                 );
                                 if self.chunks.contains_key(&chunk_index) {
-                                    log::debug!("Chunk {} {} Already exists", x, y);
+                                    debug!("Chunk {} {} Already exists", x, y);
                                     continue;
                                 }
-                                log::debug!("Register chunk at {}, {}", x, y);
+                                debug!("Register chunk at {}, {}", x, y);
                                 self.chunks.insert(chunk_index, Chunk::new());
                             }
                         }
                     }
-                    log::debug!("Inserting island with clipping rect {:?} - {:?}", island.clipping_rect.origin, island.clipping_rect.size);
+                    debug!("Inserting island with clipping rect {:?} - {:?}", island.clipping_rect.origin, island.clipping_rect.size);
                     self.islands.push(island);
                 }
             }
         }
         self.chunks.entry(ind).or_insert_with(|| {
-            log::debug!("Register chunk at {}, {}", ind.x, ind.y);
+            debug!("Register chunk at {}, {}", ind.x, ind.y);
             Chunk::new()
         });
 
@@ -159,6 +160,6 @@ impl World {
         }
         let clipping_points = vec![min_pos, max_pos];
         self.clipping_rect = WorldRect::from_points(clipping_points.into_iter());
-        log::debug!("New world clipping rect: {:?}", self.clipping_rect);
+        debug!("New world clipping rect: {:?}", self.clipping_rect);
     }
 }

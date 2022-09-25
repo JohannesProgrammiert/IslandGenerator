@@ -49,6 +49,7 @@ pub fn visible_world_rect(screen: ScreenRect, s2w: euclid::Transform2D<f32, Scre
     WorldRect::from_points(points.into_iter())
 }
 
+/// generate transformation matrix from screen to world coordinates
 pub fn gen_s2w_matrix(zoom: f32, camera: WorldCoordinate) -> euclid::Transform2D<f32, ScreenSpace, WorldSpace> {
     euclid::Transform2D::<f32, ScreenSpace, WorldSpace>::new(
         1.0 / (zoom * TILE_SIZE.x), -1.0/(zoom * TILE_SIZE.x),
@@ -57,6 +58,7 @@ pub fn gen_s2w_matrix(zoom: f32, camera: WorldCoordinate) -> euclid::Transform2D
     )
 }
 
+/// generate transformation matrix from world to screen coordinates
 pub fn gen_w2s_matrix(zoom: f32, camera: WorldCoordinate) -> euclid::Transform2D<f32, WorldSpace, ScreenSpace> {
     euclid::Transform2D::<f32, WorldSpace, ScreenSpace>::new(
         zoom * TILE_SIZE.x / 2.0, zoom * TILE_SIZE.y / 2.0,
